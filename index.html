@@ -3,24 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Accurate Slice Skull Game</title>
+    <title>Skull Slice Game with Game Over Popup</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             touch-action: none;
             background-color: #000;
+            font-family: Arial, sans-serif;
         }
         #gameCanvas {
             position: absolute;
             top: 0;
             left: 0;
-        }
-        .skull {
-            position: absolute;
-            font-size: 80px;
-            user-select: none;
-            transition: transform 0.1s;
         }
         #sliceLine {
             position: absolute;
@@ -30,18 +25,64 @@
             z-index: 1000;
             pointer-events: none;
         }
+        #gameInfo {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 24px;
+        }
+        .skull {
+            position: absolute;
+            font-size: 80px;
+            user-select: none;
+        }
+        #gameOverPopup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 2000;
+        }
+        #restartButton {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     <div id="sliceLine"></div>
+    <div id="gameInfo"></div>
+    <div id="gameOverPopup">
+        <h2>Game Over!</h2>
+        <p id="finalScore"></p>
+        <button id="restartButton">Restart</button>
+    </div>
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const sliceLine = document.getElementById('sliceLine');
+        const gameInfo = document.getElementById('gameInfo');
+        const gameOverPopup = document.getElementById('gameOverPopup');
+        const finalScore = document.getElementById('finalScore');
+        const restartButton = document.getElementById('restartButton');
         let score = 0;
+        let health = 5;
+        let timeLeft = 60;
         let isSlicing = false;
         let lastX, lastY;
+        let gameInterval;
+        let skullInterval;
+        let isGameRunning = false;
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -52,6 +93,7 @@
         resizeCanvas();
 
         function createSkull() {
+            if (!isGameRunning) return;
             const skull = document.createElement('div');
             skull.className = 'skull';
             skull.textContent = '💀';
@@ -60,24 +102,20 @@
             document.body.appendChild(skull);
 
             let posY = -80;
-            let speed = 1 + Math.random();
-            let wobble = 0;
-            let wobbleSpeed = 0.05 + Math.random() * 0.1;
+            let speed = 5 + Math.random() * 3;
 
             function animateSkull() {
-                posY += speed;
-                wobble += wobbleSpeed;
-                
-                skull.style.top = posY + 'px';
-                skull.style.transform = `translateX(${Math.sin(wobble) * 20}px)`;
-                
-                if (posY > window.innerHeight) {
+                if (!isGameRunning) {
                     skull.remove();
                     return;
                 }
-
-                if (posY > window.innerHeight * 0.7) {
-                    skull.style.opacity = 1 - (posY - window.innerHeight * 0.7) / (window.innerHeight * 0.3);
+                posY += speed;
+                skull.style.top = posY + 'px';
+                
+                if (posY > window.innerHeight) {
+                    skull.remove();
+                    loseHealth();
+                    return;
                 }
 
                 requestAnimationFrame(animateSkull);
@@ -86,7 +124,16 @@
             animateSkull();
         }
 
+        function loseHealth() {
+            health--;
+            updateGameInfo();
+            if (health <= 0) {
+                endGame();
+            }
+        }
+
         function startSlicing(e) {
+            if (!isGameRunning) return;
             isSlicing = true;
             updateSlice(e);
         }
@@ -97,7 +144,7 @@
         }
 
         function updateSlice(e) {
-            if (!isSlicing) return;
+            if (!isSlicing || !isGameRunning) return;
 
             const x = e.clientX || e.touches[0].clientX;
             const y = e.clientY || e.touches[0].clientY;
@@ -131,49 +178,59 @@
         }
 
         function lineIntersectsCircle(x1, y1, x2, y2, cx, cy, r) {
-            // Vector from line start to circle center
             const dx = cx - x1;
             const dy = cy - y1;
-
-            // Vector of the line
             const ex = x2 - x1;
             const ey = y2 - y1;
-
-            // Project circle center onto line
             const t = (dx * ex + dy * ey) / (ex * ex + ey * ey);
-
-            // Clamp t to line segment
             const t_clamped = Math.max(0, Math.min(1, t));
-
-            // Closest point on line to circle center
             const closestX = x1 + t_clamped * ex;
             const closestY = y1 + t_clamped * ey;
-
-            // Distance from closest point to circle center
             const distance = Math.hypot(closestX - cx, closestY - cy);
-
             return distance <= r;
         }
 
         function sliceSkull(skull) {
             skull.textContent = '💥';
-            score++;
+            score += Math.floor(Math.pow(1.1, score));
+            updateGameInfo();
             setTimeout(() => {
                 skull.remove();
             }, 200);
         }
 
-        function updateScore() {
-            ctx.fillStyle = 'white';
-            ctx.font = '24px Arial';
-            ctx.fillText(`Score: ${score}`, 10, 30);
+        function updateGameInfo() {
+            gameInfo.innerHTML = `Score: ${score}<br>Health: ${'❤️'.repeat(health)}<br>Time: ${timeLeft}s`;
         }
 
-        function gameLoop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            updateScore();
-            requestAnimationFrame(gameLoop);
+        function startGame() {
+            isGameRunning = true;
+            score = 0;
+            health = 5;
+            timeLeft = 60;
+            updateGameInfo();
+            gameOverPopup.style.display = 'none';
+            gameInterval = setInterval(() => {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    updateGameInfo();
+                } else {
+                    endGame();
+                }
+            }, 1000);
+            skullInterval = setInterval(createSkull, 1000);
         }
+
+        function endGame() {
+            isGameRunning = false;
+            clearInterval(gameInterval);
+            clearInterval(skullInterval);
+            finalScore.textContent = `Your score: ${score}`;
+            gameOverPopup.style.display = 'block';
+            document.querySelectorAll('.skull').forEach(skull => skull.remove());
+        }
+
+        restartButton.addEventListener('click', startGame);
 
         canvas.addEventListener('mousedown', startSlicing);
         canvas.addEventListener('mousemove', updateSlice);
@@ -185,8 +242,7 @@
         canvas.addEventListener('touchend', stopSlicing);
         canvas.addEventListener('touchcancel', stopSlicing);
 
-        setInterval(createSkull, 1500);
-        gameLoop();
+        startGame();
     </script>
 </body>
 </html>
