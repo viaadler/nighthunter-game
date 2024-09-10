@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Continuous Slice Skull Game</title>
+    <title>Accurate Slice Skull Game</title>
     <style>
         body {
             margin: 0;
@@ -124,16 +124,35 @@
                 const centerX = rect.left + rect.width / 2;
                 const centerY = rect.top + rect.height / 2;
 
-                if (isPointInLine(centerX, centerY, startX, startY, endX, endY, 40)) {
+                if (lineIntersectsCircle(startX, startY, endX, endY, centerX, centerY, rect.width / 2)) {
                     sliceSkull(skull);
                 }
             });
         }
 
-        function isPointInLine(px, py, x1, y1, x2, y2, tolerance) {
-            const distance = Math.abs((y2 - y1) * px - (x2 - x1) * py + x2 * y1 - y2 * x1) / 
-                             Math.sqrt((y2 - y1) ** 2 + (x2 - x1) ** 2);
-            return distance < tolerance;
+        function lineIntersectsCircle(x1, y1, x2, y2, cx, cy, r) {
+            // Vector from line start to circle center
+            const dx = cx - x1;
+            const dy = cy - y1;
+
+            // Vector of the line
+            const ex = x2 - x1;
+            const ey = y2 - y1;
+
+            // Project circle center onto line
+            const t = (dx * ex + dy * ey) / (ex * ex + ey * ey);
+
+            // Clamp t to line segment
+            const t_clamped = Math.max(0, Math.min(1, t));
+
+            // Closest point on line to circle center
+            const closestX = x1 + t_clamped * ex;
+            const closestY = y1 + t_clamped * ey;
+
+            // Distance from closest point to circle center
+            const distance = Math.hypot(closestX - cx, closestY - cy);
+
+            return distance <= r;
         }
 
         function sliceSkull(skull) {
