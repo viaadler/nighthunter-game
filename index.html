@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skull Slice Game with Game Over Popup</title>
+    <title>Skull Slice Game with Linear Scoring</title>
     <style>
         body {
             margin: 0;
@@ -192,7 +192,10 @@
 
         function sliceSkull(skull) {
             skull.textContent = '💥';
-            score += Math.floor(Math.pow(1.1, score));
+            // Linear scoring with time multiplier
+            const basePoints = 10;
+            const timeMultiplier = 1 + (60 - timeLeft) / 60; // Increases from 1 to 2 over the course of the game
+            score += Math.floor(basePoints * timeMultiplier);
             updateGameInfo();
             setTimeout(() => {
                 skull.remove();
