@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Revised Skull Slice Game</title>
+    <title>Continuous Slice Skull Game</title>
     <style>
         body {
             margin: 0;
@@ -22,21 +22,26 @@
             user-select: none;
             transition: transform 0.1s;
         }
-        .slice {
+        #sliceLine {
             position: absolute;
             background-color: white;
-            height: 2px;
+            height: 3px;
             transform-origin: left center;
             z-index: 1000;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
+    <div id="sliceLine"></div>
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const sliceLine = document.getElementById('sliceLine');
         let score = 0;
+        let isSlicing = false;
+        let lastX, lastY;
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -79,43 +84,63 @@
             }
 
             animateSkull();
+        }
 
-            skull.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                const touch = e.touches[0];
-                sliceSkull(skull, touch.clientX, touch.clientY);
-            });
+        function startSlicing(e) {
+            isSlicing = true;
+            updateSlice(e);
+        }
 
-            skull.addEventListener('mousedown', (e) => {
-                sliceSkull(skull, e.clientX, e.clientY);
+        function stopSlicing() {
+            isSlicing = false;
+            sliceLine.style.width = '0px';
+        }
+
+        function updateSlice(e) {
+            if (!isSlicing) return;
+
+            const x = e.clientX || e.touches[0].clientX;
+            const y = e.clientY || e.touches[0].clientY;
+
+            if (lastX && lastY) {
+                const length = Math.hypot(x - lastX, y - lastY);
+                const angle = Math.atan2(y - lastY, x - lastX) * 180 / Math.PI;
+                
+                sliceLine.style.width = `${length}px`;
+                sliceLine.style.transform = `rotate(${angle}deg)`;
+                sliceLine.style.left = `${lastX}px`;
+                sliceLine.style.top = `${lastY}px`;
+
+                checkCollisions(lastX, lastY, x, y);
+            }
+
+            lastX = x;
+            lastY = y;
+        }
+
+        function checkCollisions(startX, startY, endX, endY) {
+            document.querySelectorAll('.skull').forEach(skull => {
+                const rect = skull.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+
+                if (isPointInLine(centerX, centerY, startX, startY, endX, endY, 40)) {
+                    sliceSkull(skull);
+                }
             });
         }
 
-        function sliceSkull(skull, x, y) {
+        function isPointInLine(px, py, x1, y1, x2, y2, tolerance) {
+            const distance = Math.abs((y2 - y1) * px - (x2 - x1) * py + x2 * y1 - y2 * x1) / 
+                             Math.sqrt((y2 - y1) ** 2 + (x2 - x1) ** 2);
+            return distance < tolerance;
+        }
+
+        function sliceSkull(skull) {
             skull.textContent = '💥';
             score++;
-            createSliceEffect(x, y);
             setTimeout(() => {
                 skull.remove();
-            }, 200);
-        }
-
-        function createSliceEffect(x, y) {
-            const slice = document.createElement('div');
-            slice.className = 'slice';
-            slice.style.left = x + 'px';
-            slice.style.top = y + 'px';
-            
-            const length = 100;
-            const angle = Math.random() * 360;
-            
-            slice.style.width = length + 'px';
-            slice.style.transform = `rotate(${angle}deg)`;
-            
-            document.body.appendChild(slice);
-            
-            setTimeout(() => {
-                slice.remove();
             }, 200);
         }
 
@@ -130,6 +155,16 @@
             updateScore();
             requestAnimationFrame(gameLoop);
         }
+
+        canvas.addEventListener('mousedown', startSlicing);
+        canvas.addEventListener('mousemove', updateSlice);
+        canvas.addEventListener('mouseup', stopSlicing);
+        canvas.addEventListener('mouseleave', stopSlicing);
+
+        canvas.addEventListener('touchstart', startSlicing);
+        canvas.addEventListener('touchmove', updateSlice);
+        canvas.addEventListener('touchend', stopSlicing);
+        canvas.addEventListener('touchcancel', stopSlicing);
 
         setInterval(createSkull, 1500);
         gameLoop();
