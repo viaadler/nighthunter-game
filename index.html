@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skull Slice Game with Linear Scoring</title>
+    <title>Skull Slice Game with Slower Initial Speed</title>
     <style>
         body {
             margin: 0;
@@ -99,10 +99,14 @@
             skull.textContent = '💀';
             skull.style.left = Math.random() * (window.innerWidth - 80) + 'px';
             skull.style.top = '-80px';
+            skull.dataset.sliced = 'false';
             document.body.appendChild(skull);
 
             let posY = -80;
-            let speed = 5 + Math.random() * 3;
+            // Slower initial speed with slight randomness
+            let speed = 2 + Math.random() * 1;
+            // Optional: Increase speed over time
+            const speedIncrease = 0.02;
 
             function animateSkull() {
                 if (!isGameRunning) {
@@ -112,13 +116,20 @@
                 posY += speed;
                 skull.style.top = posY + 'px';
                 
-                if (posY > window.innerHeight) {
+                // Optional: Gradually increase speed
+                speed += speedIncrease;
+
+                if (posY > window.innerHeight && skull.dataset.sliced === 'false') {
                     skull.remove();
                     loseHealth();
                     return;
                 }
 
-                requestAnimationFrame(animateSkull);
+                if (posY <= window.innerHeight) {
+                    requestAnimationFrame(animateSkull);
+                } else {
+                    skull.remove();
+                }
             }
 
             animateSkull();
@@ -167,12 +178,14 @@
 
         function checkCollisions(startX, startY, endX, endY) {
             document.querySelectorAll('.skull').forEach(skull => {
-                const rect = skull.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                const centerY = rect.top + rect.height / 2;
+                if (skull.dataset.sliced === 'false') {
+                    const rect = skull.getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
 
-                if (lineIntersectsCircle(startX, startY, endX, endY, centerX, centerY, rect.width / 2)) {
-                    sliceSkull(skull);
+                    if (lineIntersectsCircle(startX, startY, endX, endY, centerX, centerY, rect.width / 2)) {
+                        sliceSkull(skull);
+                    }
                 }
             });
         }
@@ -192,9 +205,9 @@
 
         function sliceSkull(skull) {
             skull.textContent = '💥';
-            // Linear scoring with time multiplier
+            skull.dataset.sliced = 'true';
             const basePoints = 10;
-            const timeMultiplier = 1 + (60 - timeLeft) / 60; // Increases from 1 to 2 over the course of the game
+            const timeMultiplier = 1 + (60 - timeLeft) / 60;
             score += Math.floor(basePoints * timeMultiplier);
             updateGameInfo();
             setTimeout(() => {
