@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skull Slice Game with Highest Score</title>
+    <title>Fixed Skull Slice Game with Highest Score</title>
     <style>
         body {
             margin: 0;
@@ -80,7 +80,7 @@
         const highestScoreElement = document.getElementById('highestScore');
         const restartButton = document.getElementById('restartButton');
         let score = 0;
-        let highestScore = localStorage.getItem('highestScore') || 0;
+        let highestScore = parseInt(localStorage.getItem('highestScore')) || 0;
         let health = 5;
         let timeLeft = 60;
         let isSlicing = false;
@@ -100,15 +100,59 @@
         resizeCanvas();
 
         function createSkull() {
-            // ... (createSkull function remains the same)
+            if (!isGameRunning) return;
+            const skull = document.createElement('div');
+            skull.className = 'skull';
+            skull.textContent = '💀';
+            skull.style.left = Math.random() * (window.innerWidth - 80) + 'px';
+            skull.style.top = '-80px';
+            skull.dataset.sliced = 'false';
+            document.body.appendChild(skull);
+
+            let posY = -80;
+            let baseSpeed = 2 + (60 - timeLeft) * 0.1;
+            let speed = baseSpeed + Math.random() * 1;
+
+            function animateSkull() {
+                if (!isGameRunning) {
+                    skull.remove();
+                    return;
+                }
+                posY += speed;
+                skull.style.top = posY + 'px';
+                
+                if (posY > window.innerHeight && skull.dataset.sliced === 'false') {
+                    skull.remove();
+                    loseHealth();
+                    return;
+                }
+
+                if (posY <= window.innerHeight) {
+                    requestAnimationFrame(animateSkull);
+                } else {
+                    skull.remove();
+                }
+            }
+
+            animateSkull();
         }
 
         function createSkullWave() {
-            // ... (createSkullWave function remains the same)
+            for (let i = 0; i < skullsPerWave; i++) {
+                setTimeout(createSkull, i * 200);
+            }
         }
 
         function increaseDifficulty() {
-            // ... (increaseDifficulty function remains the same)
+            if (timeLeft % 10 === 0 && timeLeft !== 60) {
+                skullsPerWave = Math.min(skullsPerWave + 1, 5);
+            }
+
+            if (timeLeft % 5 === 0 && timeLeft !== 60) {
+                clearInterval(skullInterval);
+                const newInterval = Math.max(500, 1000 - (60 - timeLeft) * 15);
+                skullInterval = setInterval(createSkullWave, newInterval);
+            }
         }
 
         function loseHealth() {
@@ -120,23 +164,70 @@
         }
 
         function startSlicing(e) {
-            // ... (startSlicing function remains the same)
+            if (!isGameRunning) return;
+            isSlicing = true;
+            slicePoints = [];
+            updateSlice(e);
+            sliceLine.style.opacity = '1';
         }
 
         function stopSlicing() {
-            // ... (stopSlicing function remains the same)
+            isSlicing = false;
+            sliceLine.style.opacity = '0';
+            slicePoints = [];
         }
 
         function updateSlice(e) {
-            // ... (updateSlice function remains the same)
+            if (!isSlicing || !isGameRunning) return;
+
+            const x = e.clientX || e.touches[0].clientX;
+            const y = e.clientY || e.touches[0].clientY;
+
+            slicePoints.push({x, y});
+            if (slicePoints.length > 10) {
+                slicePoints.shift();
+            }
+
+            if (slicePoints.length > 1) {
+                const start = slicePoints[0];
+                const end = slicePoints[slicePoints.length - 1];
+                const length = Math.hypot(end.x - start.x, end.y - start.y);
+                const angle = Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI;
+                
+                sliceLine.style.width = `${length}px`;
+                sliceLine.style.transform = `rotate(${angle}deg)`;
+                sliceLine.style.left = `${start.x}px`;
+                sliceLine.style.top = `${start.y}px`;
+
+                checkCollisions(start.x, start.y, end.x, end.y);
+            }
         }
 
         function checkCollisions(startX, startY, endX, endY) {
-            // ... (checkCollisions function remains the same)
+            document.querySelectorAll('.skull').forEach(skull => {
+                if (skull.dataset.sliced === 'false') {
+                    const rect = skull.getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+
+                    if (lineIntersectsCircle(startX, startY, endX, endY, centerX, centerY, rect.width / 2)) {
+                        sliceSkull(skull);
+                    }
+                }
+            });
         }
 
         function lineIntersectsCircle(x1, y1, x2, y2, cx, cy, r) {
-            // ... (lineIntersectsCircle function remains the same)
+            const dx = cx - x1;
+            const dy = cy - y1;
+            const ex = x2 - x1;
+            const ey = y2 - y1;
+            const t = (dx * ex + dy * ey) / (ex * ex + ey * ey);
+            const t_clamped = Math.max(0, Math.min(1, t));
+            const closestX = x1 + t_clamped * ex;
+            const closestY = y1 + t_clamped * ey;
+            const distance = Math.hypot(closestX - cx, closestY - cy);
+            return distance <= r;
         }
 
         function sliceSkull(skull) {
