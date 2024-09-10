@@ -3,47 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nighthunter</title>
+    <title>Revised Skull Slice Game</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; background-color: #2c3e50; color: #ecf0f1; }
-        #game-container { max-width: 400px; margin: 0 auto; padding: 20px; }
-        #stats { display: flex; justify-content: space-between; margin-bottom: 20px; }
-        .stat { background-color: #34495e; padding: 5px; border-radius: 5px; }
-        button { background-color: #2ecc71; border: none; color: white; padding: 10px 20px; margin: 5px; cursor: pointer; }
-        #avatar { width: 100px; height: 100px; background-color: #3498db; margin: 20px auto; border-radius: 50%; }
+        body {
+            margin: 0;
+            overflow: hidden;
+            touch-action: none;
+            background-color: #000;
+        }
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .skull {
+            position: absolute;
+            font-size: 80px;
+            user-select: none;
+            transition: transform 0.1s;
+        }
+        .slice {
+            position: absolute;
+            background-color: white;
+            height: 2px;
+            transform-origin: left center;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
-    <div id="game-container">
-        <h1>Nighthunter</h1>
-        <div id="stats">
-            <div class="stat">Health: <span id="health">100</span></div>
-            <div class="stat">Gold: <span id="gold">0</span></div>
-        </div>
-        <div id="avatar"></div>
-        <button onclick="hunt()">Hunt</button>
-        <div id="message"></div>
-    </div>
+    <canvas id="gameCanvas"></canvas>
     <script>
-        let health = 100;
-        let gold = 0;
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let score = 0;
 
-        function hunt() {
-            if (health > 0) {
-                let goldEarned = Math.floor(Math.random() * 10) + 1;
-                gold += goldEarned;
-                health -= Math.floor(Math.random() * 20) + 1;
-                updateStats();
-                document.getElementById('message').innerText = `You earned ${goldEarned} gold!`;
-            } else {
-                document.getElementById('message').innerText = 'Game Over!';
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function createSkull() {
+            const skull = document.createElement('div');
+            skull.className = 'skull';
+            skull.textContent = '💀';
+            skull.style.left = Math.random() * (window.innerWidth - 80) + 'px';
+            skull.style.top = '-80px';
+            document.body.appendChild(skull);
+
+            let posY = -80;
+            let speed = 1 + Math.random();
+            let wobble = 0;
+            let wobbleSpeed = 0.05 + Math.random() * 0.1;
+
+            function animateSkull() {
+                posY += speed;
+                wobble += wobbleSpeed;
+                
+                skull.style.top = posY + 'px';
+                skull.style.transform = `translateX(${Math.sin(wobble) * 20}px)`;
+                
+                if (posY > window.innerHeight) {
+                    skull.remove();
+                    return;
+                }
+
+                if (posY > window.innerHeight * 0.7) {
+                    skull.style.opacity = 1 - (posY - window.innerHeight * 0.7) / (window.innerHeight * 0.3);
+                }
+
+                requestAnimationFrame(animateSkull);
             }
+
+            animateSkull();
+
+            skull.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                sliceSkull(skull, touch.clientX, touch.clientY);
+            });
+
+            skull.addEventListener('mousedown', (e) => {
+                sliceSkull(skull, e.clientX, e.clientY);
+            });
         }
 
-        function updateStats() {
-            document.getElementById('health').innerText = health;
-            document.getElementById('gold').innerText = gold;
+        function sliceSkull(skull, x, y) {
+            skull.textContent = '💥';
+            score++;
+            createSliceEffect(x, y);
+            setTimeout(() => {
+                skull.remove();
+            }, 200);
         }
+
+        function createSliceEffect(x, y) {
+            const slice = document.createElement('div');
+            slice.className = 'slice';
+            slice.style.left = x + 'px';
+            slice.style.top = y + 'px';
+            
+            const length = 100;
+            const angle = Math.random() * 360;
+            
+            slice.style.width = length + 'px';
+            slice.style.transform = `rotate(${angle}deg)`;
+            
+            document.body.appendChild(slice);
+            
+            setTimeout(() => {
+                slice.remove();
+            }, 200);
+        }
+
+        function updateScore() {
+            ctx.fillStyle = 'white';
+            ctx.font = '24px Arial';
+            ctx.fillText(`Score: ${score}`, 10, 30);
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            updateScore();
+            requestAnimationFrame(gameLoop);
+        }
+
+        setInterval(createSkull, 1500);
+        gameLoop();
     </script>
 </body>
 </html>
